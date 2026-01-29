@@ -1,5 +1,5 @@
 phases:
-  - name: Phase 1 — Core Display Features
+  - name: Phase 1 — Core Display Features.
     items:
       - title: Multi‑bar threat list (TinyThreat‑style)
         description: Build the core multi‑bar threat list display.
