@@ -1,5 +1,16 @@
+# WoW Addon Development
 /Temp
 *.bak
 *.old
 *.tmp
+*.log
 *.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.code-workspace

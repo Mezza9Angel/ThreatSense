@@ -1,7 +1,7 @@
 ## Interface: 120000, 120001
 ## Title: ThreatSense
-## Notes: Modern threat management addon for all roles and classes
-## Author: Mezza9 Angel
+## Notes: Modern threat display & warning addon
+## Author: Tim
 ## Version: 0.1.0
 ## SavedVariables: ThreatSenseDB
 ## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0
@@ -14,17 +14,32 @@
 # Libs\AceDB-3.0\AceDB-3.0.lua
 # Libs\AceConsole-3.0\AceConsole-3.0.lua
 
-# Core Files
-Core\Constants.lua
-Core\Utils.lua
+## Title: ThreatSense
+## Notes: Modern threat display & warning addon
+## Author: Tim
+## Version: 0.1.0
+## SavedVariables: ThreatSenseDB
 
-# Main addon file
+# Core
+Core/Constants.lua
+Core/Utils.lua
+
+# Main
 ThreatSense.lua
 
 # Modules
-Modules\ThreatEngine.lua
-Modules\Config.lua
-Modules\Config_Display.lua
-Modules\Config_Warnings.lua
-Modules\Display.lua
-Modules\Warnings.lua
+Modules/ThreatEngine.lua
+Modules/Warnings.lua
+Modules/Display
+Modules/ThreatBar.lua
+Modules/ThreatList.lua
+
+# Config
+Modules/Config.lua
+Modules/Config_Display.lua
+Modules/Config_Warnings.lua
+
+# Media
+Media/textures/
+Media/fonts/
+Media/sounds/
