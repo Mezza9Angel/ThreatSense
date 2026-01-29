@@ -3,7 +3,8 @@ name: Generate Issues from YAML Roadmap
 permissions:
   contents: read
   issues: write
-    
+  projects: write
+
 on:
   workflow_dispatch:
 
@@ -22,6 +23,9 @@ jobs:
           sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
           sudo chmod +x /usr/bin/yq
 
+      #######################################################################
+      # AUTO-DETECT PROJECT ID (USER → ORG FALLBACK)
+      #######################################################################
       - name: Auto-detect GitHub Project ID
         id: detect_project
         env:
@@ -29,18 +33,49 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           PROJECT_NUMBER: 3
         run: |
-          PROJECT_ID=$(gh api graphql -f query='
+          echo "Attempting USER project lookup..."
+          USER_RESULT=$(gh api graphql -f query='
             query($owner: String!, $number: Int!) {
               user(login: $owner) {
                 projectV2(number: $number) {
                   id
                 }
               }
-            }' -f owner="$OWNER" -F number="$PROJECT_NUMBER" --jq '.data.user.projectV2.id')
+            }' -f owner="$OWNER" -F number="$PROJECT_NUMBER" 2>/dev/null || true)
 
-          echo "project_id=$PROJECT_ID" >> "$GITHUB_OUTPUT"
-          echo "Detected Project ID: $PROJECT_ID"
+          USER_ID=$(echo "$USER_RESULT" | jq -r '.data.user.projectV2.id // empty')
 
+          if [ -n "$USER_ID" ]; then
+            echo "Detected user project: $USER_ID"
+            echo "project_id=$USER_ID" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "User project not found. Attempting ORG project lookup..."
+
+          ORG_RESULT=$(gh api graphql -f query='
+            query($owner: String!, $number: Int!) {
+              organization(login: $owner) {
+                projectV2(number: $number) {
+                  id
+                }
+              }
+            }' -f owner="$OWNER" -F number="$PROJECT_NUMBER" 2>/dev/null || true)
+
+          ORG_ID=$(echo "$ORG_RESULT" | jq -r '.data.organization.projectV2.id // empty')
+
+          if [ -n "$ORG_ID" ]; then
+            echo "Detected organization project: $ORG_ID"
+            echo "project_id=$ORG_ID" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "ERROR: Could not detect a ProjectV2 with number $PROJECT_NUMBER for owner $OWNER"
+          exit 1
+
+      #######################################################################
+      # PARSE YAML AND CREATE ISSUES
+      #######################################################################
       - name: Parse YAML and create issues
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -56,16 +91,16 @@ jobs:
 
               BODY="### Description
               $DESCRIPTION
-              
+
               ### Phase
               $PHASE_NAME
 
               ### Status
               $STATUS
 
-          ---
+            ---
 
-          Generated automatically from roadmap.yml"
+            Generated automatically from roadmap.yml"
 
               # Skip if issue already exists
               if gh issue list --search "$TITLE" --json title | jq -e ".[] | select(.title==\"$TITLE\")" > /dev/null; then
@@ -85,6 +120,9 @@ jobs:
 
               ISSUE_ID=$(gh api "$ISSUE_URL" --jq '.node_id')
 
+              #######################################################################
+              # ADD ISSUE TO PROJECT
+              #######################################################################
               gh api graphql -f query='
                 mutation($project:ID!, $item:ID!) {
                   addProjectV2ItemById(input: {projectId: $project, contentId: $item}) {
