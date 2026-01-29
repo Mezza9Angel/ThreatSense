@@ -1,45 +1,49 @@
 ## Interface: 120000, 120001
 ## Title: ThreatSense
 ## Notes: Modern threat display & warning addon
-## Author: Tim
-## Version: 0.1.0
-## SavedVariables: ThreatSenseDB
-## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0
-
-# Libraries (you'll need to download Ace3 libraries separately)
-# Libs\LibStub\LibStub.lua
-# Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
-# Libs\AceAddon-3.0\AceAddon-3.0.lua
-# Libs\AceEvent-3.0\AceEvent-3.0.lua
-# Libs\AceDB-3.0\AceDB-3.0.lua
-# Libs\AceConsole-3.0\AceConsole-3.0.lua
-
-## Title: ThreatSense
-## Notes: Modern threat display & warning addon
-## Author: Tim
+## Author: Mezza9Angel
 ## Version: 0.1.0
 ## SavedVariables: ThreatSenseDB
 
 # Core
 Core/Constants.lua
 Core/Utils.lua
+Core/EventBus.lua
+Core/Init.lua
+
+# Systems
+Systems/ThreatEngine.lua
+Systems/WarningEngine.lua
+Systems/Smoothing.lua
+
+# UI - Bars
+UI/Bars/ThreatBar.lua
+UI/Bars/ThreatList.lua
+
+# UI - Warnings
+UI/Warnings/WarningFrame.lua
+UI/Warnings/WarningAnimations.lua
+
+# UI - Preview
+UI/Preview/DisplayPreview.lua
+UI/Preview/WarningPreview.lua
+
+# UI - Shared
+UI/Shared/Fonts.lua
+UI/Shared/Textures.lua
+UI/Shared/Colors.lua
+
+# Config
+Config/Config.lua
+Config/Display.lua
+Config/Warnings.lua
+Config/Profiles.lua
+Config/Roles.lua
+Config/TestMode.lua
+
+# Tools
+Tools/DevMode.lua
+Tools/Migration.lua
 
 # Main
 ThreatSense.lua
-
-# Modules
-Modules/ThreatEngine.lua
-Modules/Warnings.lua
-Modules/Display
-Modules/ThreatBar.lua
-Modules/ThreatList.lua
-
-# Config
-Modules/Config.lua
-Modules/Config_Display.lua
-Modules/Config_Warnings.lua
-
-# Media
-Media/textures/
-Media/fonts/
-Media/sounds/
