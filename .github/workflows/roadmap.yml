@@ -1,0 +1,24 @@
+phases:
+  - name: Phase 1 — Core Display Features
+    items:
+      - title: Multi‑bar threat list (TinyThreat‑style)
+        description: Build the core multi‑bar threat list display
+        status: Todo
+      - title: Smooth updates for threat list
+        description: Implement smooth threat value transitions
+        status: Todo
+      - title: Class colors for list entries
+        description: Color each entry based on class
+        status: Todo
+      - title: Tank indicator in list
+        description: Show tank role indicator next to units
+        status: Todo
+
+  - name: Phase 2 — Interface Options
+    items:
+      - title: Parent settings panel
+        description: Create root settings panel with metadata
+        status: Todo
+      - title: Display panel: display mode dropdown
+        description: Add display mode selector
+        status: Todo
