@@ -46,12 +46,12 @@ jobs:
       - name: Create ZIP package
         run: |
           mkdir -p build
-          cd ThreatSense
-          zip -r "../build/ThreatSense-v${{ steps.bump.outputs.new }}.zip" . \
+          zip -r "build/ThreatSense-v${{ steps.bump.outputs.new }}.zip" . \
             -x "*.git*" \
             -x "**/.github/**" \
             -x "**/.vscode/**" \
-            -x "**/.idea/**"
+            -x "**/.idea/**" \
+            -x "build/*"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
