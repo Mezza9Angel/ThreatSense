@@ -23,9 +23,6 @@ jobs:
           sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
           sudo chmod +x /usr/bin/yq
 
-      #######################################################################
-      # AUTO-DETECT PROJECT ID
-      #######################################################################
       - name: Auto-detect GitHub Project ID
         id: detect_project
         env:
@@ -45,9 +42,6 @@ jobs:
           echo "project_id=$PROJECT_ID" >> $GITHUB_OUTPUT
           echo "Detected Project ID: $PROJECT_ID"
 
-      #######################################################################
-      # PARSE YAML AND CREATE ISSUES
-      #######################################################################
       - name: Parse YAML and create issues
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -74,7 +68,6 @@ $STATUS
 
 Generated automatically from roadmap.yml"
 
-              # Skip if issue already exists
               if gh issue list --search "$TITLE" --json title | jq -e ".[] | select(.title==\"$TITLE\")" > /dev/null; then
                 echo "Skipping existing issue: $TITLE"
                 continue
@@ -92,9 +85,6 @@ Generated automatically from roadmap.yml"
 
               ISSUE_ID=$(gh api "$ISSUE_URL" --jq '.node_id')
 
-              #######################################################################
-              # ADD ISSUE TO PROJECT
-              #######################################################################
               gh api graphql -f query='
                 mutation($project:ID!, $item:ID!) {
                   addProjectV2ItemById(input: {projectId: $project, contentId: $item}) {
