@@ -1,5 +1,9 @@
 name: Generate Issues from CSV
 
+permissions:
+  contents: write
+  issues: write
+
 on:
   workflow_dispatch:
 
@@ -11,9 +15,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Read CSV and create issues
+      - name: Create issues from file
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "Bulk Issue Creation"
+          title: Bulk Issue Creation
           content-filepath: .github/roadmap.csv
-          labels: "automation, roadmap"
+          labels: automation, roadmap
+          token: ${{ secrets.GITHUB_TOKEN }}
