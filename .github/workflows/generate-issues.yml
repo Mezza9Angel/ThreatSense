@@ -3,7 +3,7 @@ name: Generate Issues from YAML Roadmap
 permissions:
   contents: read
   issues: write
-  
+    
 on:
   workflow_dispatch:
 
@@ -27,7 +27,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OWNER: ${{ github.repository_owner }}
-          PROJECT_NUMBER: 1
+          PROJECT_NUMBER: 3
         run: |
           PROJECT_ID=$(gh api graphql -f query='
             query($owner: String!, $number: Int!) {
