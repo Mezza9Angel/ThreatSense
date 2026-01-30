@@ -2,11 +2,7 @@
 ## Title: ThreatSense
 ## Notes: Modern threat display and warning system.
 ## Author: Mezza9Angel
-<<<<<<< HEAD
 ## Version: 0.2.1
-=======
-## Version: @project-version@..3
->>>>>>> 359f71f40355f4e62552c51f66ce06136db5fdb5
 ## SavedVariables: ThreatSenseDB
 
 # Libraries

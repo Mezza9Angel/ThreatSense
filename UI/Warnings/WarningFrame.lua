@@ -1,5 +1,5 @@
 -- ThreatSense: WarningFrame.lua
--- Modern, profile-driven warning UI with animations and sounds
+-- Snapshot-driven, profile-based warning display frame
 
 local ADDON_NAME, TS = ...
 
@@ -10,7 +10,45 @@ local WF = TS.WarningFrame
 -- Internal state
 ------------------------------------------------------------
 WF.frame = nil
-WF.activeWarning = nil
+WF.activeType = nil
+
+------------------------------------------------------------
+-- Safe profile access with defaults
+------------------------------------------------------------
+local function GetProfile()
+    local p = TS.db and TS.db.profile and TS.db.profile.warnings
+    if not p then
+        return {
+            enabled = true,
+            visualEnabled = true,
+            soundEnabled = true,
+            warningThreshold = 85,
+            dangerThreshold = 95,
+            width = 240,
+            height = 60,
+            scale = 1,
+            position = {
+                point = "CENTER",
+                relativePoint = "CENTER",
+                x = 0,
+                y = 200,
+            },
+        }
+    end
+
+    -- Ensure required fields exist
+    p.width  = p.width  or 240
+    p.height = p.height or 60
+    p.scale  = p.scale  or 1
+    p.position = p.position or {
+        point = "CENTER",
+        relativePoint = "CENTER",
+        x = 0,
+        y = 200,
+    }
+
+    return p
+end
 
 ------------------------------------------------------------
 -- Apply profile settings
@@ -18,134 +56,151 @@ WF.activeWarning = nil
 function WF:ApplyProfile()
     if not self.frame then return end
 
-    local profile = TS.db.profile.warnings
+    local profile = GetProfile()
 
-    -- Size
-    self.frame:SetSize(profile.iconSize, profile.iconSize)
+    self.frame:SetSize(profile.width, profile.height)
+    self.frame:SetScale(profile.scale)
 
-    -- Position
-    local pos = profile.position
     self.frame:ClearAllPoints()
-    self.frame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
-
-    -- Font
-    local font = TS.Media:Font(profile.font)
-    self.frame.text:SetFont(font, profile.fontSize, "OUTLINE")
+    self.frame:SetPoint(
+        profile.position.point,
+        UIParent,
+        profile.position.relativePoint,
+        profile.position.x,
+        profile.position.y
+    )
 end
 
 ------------------------------------------------------------
 -- Create the warning frame
 ------------------------------------------------------------
-function WF:Initialize()
+function WF:Create()
     if self.frame then return end
 
-    local profile = TS.db.profile.warnings
+    local profile = GetProfile()
 
     local f = CreateFrame("Frame", "ThreatSense_WarningFrame", UIParent)
-    f:SetSize(profile.iconSize, profile.iconSize)
-    f:SetPoint(profile.position.point, UIParent, profile.position.relativePoint, profile.position.x, profile.position.y)
+    f:SetSize(profile.width, profile.height)
+    f:SetScale(profile.scale)
+    f:SetFrameStrata("HIGH")
     f:Hide()
 
-    self.frame = f
-
-    -- Icon
-    f.icon = f:CreateTexture(nil, "ARTWORK")
-    f.icon:SetAllPoints()
+    -- Background
+    local bg = f:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0, 0, 0, 0.6)
+    f.bg = bg
 
     -- Text
-    f.text = f:CreateFontString(nil, "OVERLAY")
-    f.text:SetFont(TS.Media:Font(profile.font), profile.fontSize, "OUTLINE")
-    f.text:SetPoint("TOP", f, "BOTTOM", 0, -4)
+    local text = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    text:SetPoint("CENTER")
+    text:SetText("")
+    f.text = text
 
-    ------------------------------------------------------------
+    self.frame = f
+    self:ApplyProfile()
+
+    --------------------------------------------------------
     -- Event listeners
-    ------------------------------------------------------------
-
-    -- Warning triggered
-    TS.EventBus:Register("WARNING_TRIGGERED", function(data)
-        self:ShowWarning(data)
+    --------------------------------------------------------
+    TS.EventBus:Register("WARNING_TRIGGERED", function(payload)
+        self:OnWarning(payload)
     end, {
         namespace = "WarningFrame",
-        source = "WarningFrame",
+        source    = "WarningFrame",
     })
 
-    -- Warning cleared
-    TS.EventBus:Register("WARNING_CLEARED", function()
-        self:ClearWarning()
+    TS.EventBus:Register("WARNING_CLEARED", function(payload)
+        self:OnWarningCleared(payload)
     end, {
         namespace = "WarningFrame",
-        source = "WarningFrame",
+        source    = "WarningFrame",
     })
 
-    -- Profile changed
     TS.EventBus:Register("PROFILE_CHANGED", function()
         self:ApplyProfile()
     end, {
         namespace = "WarningFrame",
-        source = "WarningFrame",
-    })
-
-    -- Threat reset
-    TS.EventBus:Register("THREAT_RESET", function()
-        self:ClearWarning()
-    end, {
-        namespace = "WarningFrame",
-        source = "WarningFrame",
+        source    = "WarningFrame",
     })
 
     TS.Utils:Debug("WarningFrame 2.0 initialized")
 end
 
 ------------------------------------------------------------
--- Show a warning
+-- Warning display logic
 ------------------------------------------------------------
-function WF:ShowWarning(data)
+local CATEGORY_COLORS = {
+    SAFE     = { r = 0.20, g = 0.80, b = 0.20 },
+    WARNING  = { r = 0.90, g = 0.80, b = 0.20 },
+    DANGER   = { r = 0.95, g = 0.50, b = 0.10 },
+    CRITICAL = { r = 0.95, g = 0.20, b = 0.20 },
+}
+
+local function GetColorForType(type)
+    if type == "AGGRO_LOST" or type == "AGGRO_PULLED" then
+        return CATEGORY_COLORS.CRITICAL
+    elseif type == "LOSING_AGGRO" or type == "PULLING_AGGRO" then
+        return CATEGORY_COLORS.DANGER
+    elseif type == "TAUNT" or type == "DROP_THREAT" then
+        return CATEGORY_COLORS.WARNING
+    end
+
+    return CATEGORY_COLORS.SAFE
+end
+
+------------------------------------------------------------
+-- Handle warning triggered
+------------------------------------------------------------
+function WF:OnWarning(payload)
+    local profile = GetProfile()
+    if not profile.enabled or not profile.visualEnabled then return end
+
     local f = self.frame
     if not f then return end
 
-    local profile = TS.db.profile.warnings
+    self.activeType = payload.type
 
-    -- Priority handling
-    if self.activeWarning and data.priority < self.activeWarning.priority then
-        return -- ignore lower priority warnings
-    end
-    self.activeWarning = data
+    -- Set text
+    local msg = payload.type:gsub("_", " ")
+    f.text:SetText(msg)
 
-    -- Icon
-    local icon = profile.icons[data.type] or TS.WarningDefaults.icons[data.type]
-    if not icon then return end
-    f.icon:SetTexture(icon)
-
-    -- Text
-    if profile.showText then
-        f.text:SetText(data.text or data.type:gsub("_", " "))
-    else
-        f.text:SetText("")
-    end
-
-    -- Sound
-    if profile.sounds[data.type] and profile.sounds[data.type].enabled then
-        local sound = TS.Media:Sound(profile.sounds[data.type].mediaKey)
-        if sound then PlaySoundFile(sound, "Master") end
-    end
+    -- Color
+    local c = GetColorForType(payload.type)
+    f.bg:SetColorTexture(c.r, c.g, c.b, 0.6)
 
     -- Animation
-    TS.WarningAnimations:Stop(f)
-    TS.WarningAnimations:Play(f, profile.animation)
+    if TS.WarningAnimations and TS.WarningAnimations.Play then
+        TS.WarningAnimations:Play(f, payload.type)
+    end
 
     f:Show()
 end
 
 ------------------------------------------------------------
--- Clear warning
+-- Handle warning cleared
 ------------------------------------------------------------
-function WF:ClearWarning()
-    local f = self.frame
-    if not f then return end
+function WF:OnWarningCleared(payload)
+    if not self.frame then return end
 
-    TS.WarningAnimations:Stop(f)
-    f:Hide()
-    self.activeWarning = nil
+    self.activeType = nil
+
+    if TS.WarningAnimations and TS.WarningAnimations.Stop then
+        TS.WarningAnimations:Stop(self.frame)
+    end
+
+    self.frame:Hide()
+end
+
+------------------------------------------------------------
+-- Show / Hide
+------------------------------------------------------------
+function WF:Show()
+    if self.frame then self.frame:Show() end
+end
+
+function WF:Hide()
+    if self.frame then self.frame:Hide() end
 end
 
 return WF
