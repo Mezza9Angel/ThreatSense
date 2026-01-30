@@ -36,6 +36,11 @@ UI\Warnings\WarningAnimations.lua
 UI\Preview\DisplayPreview.lua
 UI\Preview\WarningPreview.lua
 
+# UI - Shared
+UI\Shared\Colors.lua
+UI\Shared\Fonts.lua
+UI\Shared\Textures.lua
+
 # Config Panels
 Config\Parent.lua
 Config\Display.lua
@@ -43,6 +48,5 @@ Config\DisplayAdvanced.lua
 Config\Warnings.lua
 Config\WarningsAdvanced.lua
 Config\Roles.lua
-Config\Reset.lua
 Config\Profiles.lua
-Config\TestMode.lua
+Config\Reset.lua
