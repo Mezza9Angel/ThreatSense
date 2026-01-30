@@ -1,4 +1,4 @@
-## Interface: 120000
+## Interface: 120000, 120001
 ## Title: ThreatSense
 ## Notes: Modern threat display and warning system.
 ## Author: Tim
@@ -12,6 +12,8 @@ libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
 Core\EventBus.lua
 Core\Init.lua
 Core\SlashCommands.lua
+Core\Constant.lua
+Core\Utils.lua
 
 # Systems
 Systems\ThreatEngine.lua
@@ -20,10 +22,6 @@ Systems\ProfileManager.lua
 Systems\RoleManager.lua
 Systems\SharedMedia.lua
 Systems\Smoothing.lua
-
-# UI - Bars
-UI\Bars\Threadbar.lua
-UI\Bars\ThreadList.lua
 
 # UI - Display
 UI\Display\ThreatBar.lua
@@ -46,3 +44,5 @@ Config\Warnings.lua
 Config\WarningsAdvanced.lua
 Config\Roles.lua
 Config\Reset.lua
+Config\Profiles.lua
+Config\TestMode.lua
