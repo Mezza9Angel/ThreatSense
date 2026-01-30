@@ -28,6 +28,9 @@ Engine.state = {
     },
 }
 
+Engine.inCombat      = false
+Engine.hasTargetData = false
+
 ------------------------------------------------------------
 -- Helpers
 ------------------------------------------------------------
@@ -39,11 +42,22 @@ local function IsValidThreatTarget(unit)
 end
 
 local function GetPrimaryTarget()
+    -- Priority: current target → focus → bosses
     if IsValidThreatTarget("target") then
         return "target"
-    elseif IsValidThreatTarget("focus") then
+    end
+
+    if IsValidThreatTarget("focus") then
         return "focus"
     end
+
+    for i = 1, 5 do
+        local bossUnit = "boss" .. i
+        if IsValidThreatTarget(bossUnit) then
+            return bossUnit
+        end
+    end
+
     return nil
 end
 
@@ -62,6 +76,7 @@ local function ClearState()
     s.player.isTanking = false
     s.player.relToTank = 0
     s.player.category  = "SAFE"
+    Engine.hasTargetData = false
 end
 
 ------------------------------------------------------------
@@ -70,8 +85,11 @@ end
 function Engine:Update()
     local target = GetPrimaryTarget()
 
+    -- If no valid target and we had data before → reset once
     if not target then
-        self:Reset()
+        if self.hasTargetData then
+            self:Reset()
+        end
         return
     end
 
@@ -140,6 +158,14 @@ function Engine:UpdateThreatForTarget(target)
         end
     end
 
+    if #list == 0 then
+        -- No meaningful threat data → treat as reset of target data
+        if self.hasTargetData then
+            self:Reset()
+        end
+        return
+    end
+
     table.sort(list, function(a, b)
         return a.threat > b.threat
     end)
@@ -157,7 +183,6 @@ function Engine:UpdateThreatForTarget(target)
     s.player.threatPct = playerThreatPct
     s.player.isTanking = playerIsTanking
 
-    -- Role-agnostic relative threat (player vs tank)
     if tankThreat > 0 and playerThreat > 0 then
         s.player.relToTank = Math:GetRelativeThreat(playerThreat, tankThreat)
     else
@@ -166,6 +191,7 @@ function Engine:UpdateThreatForTarget(target)
 
     s.player.category = Math:GetThreatCategory(s.player.relToTank)
 
+    self.hasTargetData = true
     self:EmitThreatEvents()
 end
 
@@ -179,7 +205,6 @@ function Engine:EmitThreatEvents()
 
     local s = self.state
 
-    -- Rich snapshot for modern consumers
     TS.EventBus:Send("THREAT_SNAPSHOT_UPDATED", {
         targetUnit   = s.targetUnit,
         targetName   = s.targetName,
@@ -196,26 +221,6 @@ function Engine:EmitThreatEvents()
             relToTank = s.player.relToTank,
             category  = s.player.category,
         },
-    })
-
-    -- Backwards-compatible events
-    TS.EventBus:Send("THREAT_TARGET_UPDATED", {
-        unit = s.targetUnit,
-        name = s.targetName,
-    })
-
-    TS.EventBus:Send("THREAT_LIST_UPDATED", {
-        list      = s.list,
-        topThreat = s.topThreat,
-        tankThreat = s.tankThreat,
-    })
-
-    TS.EventBus:Send("PLAYER_THREAT_UPDATED", {
-        threat     = s.player.threat,
-        threatPct  = s.player.threatPct,
-        isTanking  = s.player.isTanking,
-        relToTank  = s.player.relToTank,
-        category   = s.player.category,
     })
 end
 
@@ -256,24 +261,73 @@ function Engine:Reset()
 end
 
 ------------------------------------------------------------
--- Initialization
+-- Event-driven update scheduling
 ------------------------------------------------------------
 local updateFrame
+local elapsedSinceUpdate = 0
+local pendingUpdate      = false
+local UPDATE_INTERVAL    = TS.UPDATE_INTERVAL or 0.2
 
+local function ScheduleUpdate()
+    pendingUpdate = true
+end
+
+local function OnEvent(_, event, arg1, ...)
+    if event == "PLAYER_REGEN_DISABLED" then
+        Engine.inCombat = true
+        ScheduleUpdate()
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        Engine.inCombat = false
+        Engine:Reset()
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        ScheduleUpdate()
+    elseif event == "UNIT_THREAT_LIST_UPDATE" or event == "UNIT_THREAT_SITUATION_UPDATE" then
+        ScheduleUpdate()
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        ScheduleUpdate()
+    end
+end
+
+local function OnUpdate(_, delta)
+    if not pendingUpdate then return end
+
+    elapsedSinceUpdate = elapsedSinceUpdate + delta
+    if elapsedSinceUpdate < UPDATE_INTERVAL then
+        return
+    end
+
+    elapsedSinceUpdate = 0
+    pendingUpdate = false
+
+    -- Only update if we have a meaningful context:
+    -- either in combat or we have a valid hostile target
+    local target = GetPrimaryTarget()
+    if not Engine.inCombat and not target then
+        Engine:Reset()
+        return
+    end
+
+    Engine:Update()
+end
+
+------------------------------------------------------------
+-- Initialization
+------------------------------------------------------------
 function Engine:Initialize()
-    TS.Utils:Debug("ThreatEngine 2.0 initialized")
+    TS.Utils:Debug("ThreatEngine 2.0 initialized (event-driven)")
 
     if not updateFrame then
         updateFrame = CreateFrame("Frame")
-        local elapsed = 0
 
-        updateFrame:SetScript("OnUpdate", function(_, delta)
-            elapsed = elapsed + delta
-            if elapsed >= TS.UPDATE_INTERVAL then
-                elapsed = 0
-                Engine:Update()
-            end
-        end)
+        updateFrame:SetScript("OnEvent", OnEvent)
+        updateFrame:SetScript("OnUpdate", OnUpdate)
+
+        updateFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+        updateFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        updateFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+        updateFrame:RegisterEvent("UNIT_THREAT_LIST_UPDATE")
+        updateFrame:RegisterEvent("UNIT_THREAT_SITUATION_UPDATE")
+        updateFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     end
 end
 

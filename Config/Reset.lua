@@ -47,11 +47,11 @@ local ROLE_DEFAULTS = {
         },
         colors = {
             warnings = {
-                AGGRO_LOST = { r = 1, g = 0.2, b = 0.2, a = 1 },
-                TAUNT = { r = 1, g = 0.5, b = 0.1, a = 1 },
-                LOSING_AGGRO = { r = 1, g = 0.8, b = 0.1, a = 1 },
-                PULLING_AGGRO = { r = 1, g = 0.8, b = 0.1, a = 1 },
-                AGGRO_PULLED = { r = 1, g = 0.2, b = 0.2, a = 1 },
+                AGGRO_LOST     = { r = 1, g = 0.2, b = 0.2, a = 1 },
+                TAUNT          = { r = 1, g = 0.5, b = 0.1, a = 1 },
+                LOSING_AGGRO   = { r = 1, g = 0.8, b = 0.1, a = 1 },
+                PULLING_AGGRO  = { r = 1, g = 0.8, b = 0.1, a = 1 },
+                AGGRO_PULLED   = { r = 1, g = 0.2, b = 0.2, a = 1 },
             }
         }
     },
@@ -91,11 +91,11 @@ local ROLE_DEFAULTS = {
         },
         colors = {
             warnings = {
-                AGGRO_LOST = { r = 1, g = 0.2, b = 0.2, a = 1 },
-                TAUNT = { r = 1, g = 0.5, b = 0.1, a = 1 },
-                LOSING_AGGRO = { r = 1, g = 0.8, b = 0.1, a = 1 },
-                PULLING_AGGRO = { r = 1, g = 0.8, b = 0.1, a = 1 },
-                AGGRO_PULLED = { r = 1, g = 0.2, b = 0.2, a = 1 },
+                AGGRO_LOST     = { r = 1, g = 0.2, b = 0.2, a = 1 },
+                TAUNT          = { r = 1, g = 0.5, b = 0.1, a = 1 },
+                LOSING_AGGRO   = { r = 1, g = 0.8, b = 0.1, a = 1 },
+                PULLING_AGGRO  = { r = 1, g = 0.8, b = 0.1, a = 1 },
+                AGGRO_PULLED   = { r = 1, g = 0.2, b = 0.2, a = 1 },
             }
         }
     },
@@ -135,11 +135,11 @@ local ROLE_DEFAULTS = {
         },
         colors = {
             warnings = {
-                AGGRO_LOST = { r = 1, g = 0.2, b = 0.2, a = 1 },
-                TAUNT = { r = 1, g = 0.5, b = 0.1, a = 1 },
-                LOSING_AGGRO = { r = 1, g = 0.8, b = 0.1, a = 1 },
-                PULLING_AGGRO = { r = 1, g = 0.8, b = 0.1, a = 1 },
-                AGGRO_PULLED = { r = 1, g = 0.2, b = 0.2, a = 1 },
+                AGGRO_LOST     = { r = 1, g = 0.2, b = 0.2, a = 1 },
+                TAUNT          = { r = 1, g = 0.5, b = 0.1, a = 1 },
+                LOSING_AGGRO   = { r = 1, g = 0.8, b = 0.1, a = 1 },
+                PULLING_AGGRO  = { r = 1, g = 0.8, b = 0.1, a = 1 },
+                AGGRO_PULLED   = { r = 1, g = 0.2, b = 0.2, a = 1 },
             }
         }
     }
@@ -155,7 +155,6 @@ local function ApplyRoleDefaults()
 
     local profile = TS.db.profile
 
-    -- Deep copy defaults into profile
     for section, values in pairs(defaults) do
         profile[section] = profile[section] or {}
         for key, value in pairs(values) do
@@ -168,38 +167,52 @@ end
 -- Reset active profile
 ------------------------------------------------------------
 local function ResetActiveProfile()
-    TS.db:ResetProfile()      -- AceDB reset
-    ApplyRoleDefaults()       -- Apply role defaults
+    TS.db:ResetProfile()
+    ApplyRoleDefaults()
 
     TS.EventBus:Send("PROFILE_RESET")
     TS.EventBus:Send("PROFILE_CHANGED")
 
-    if TS.DisplayPreview:IsActive() then
+    if TS.DisplayPreview and TS.DisplayPreview.IsActive and TS.DisplayPreview:IsActive() then
         TS.DisplayPreview:Stop()
     end
-    if TS.WarningPreview:IsActive() then
+    if TS.WarningPreview and TS.WarningPreview.IsActive and TS.WarningPreview:IsActive() then
         TS.WarningPreview:Stop()
     end
 end
 
 ------------------------------------------------------------
--- Initialize Reset Panel
+-- Initialize Reset Panel (modern Settings API)
 ------------------------------------------------------------
 function Reset:Initialize()
-    local categoryName = TS.Categories.RESET or "ThreatSense - Reset"
-    local category, layout = Settings.RegisterVerticalLayoutCategory(categoryName)
-    self.category = category
+    local panel = CreateFrame("Frame", "ThreatSenseConfigReset", UIParent)
+    panel.name   = TS.ConfigCategories.RESET
+    panel.parent = TS.ConfigCategories.ROOT
 
-    Settings.CreateControlButton(
-        layout,
-        "Reset Active Profile",
-        "Reset all settings in the active profile and reapply role-based defaults.",
-        function()
-            ResetActiveProfile()
-        end
-    )
+    local y = -16
+    local function NextLine(offset)
+        y = y - (offset or 30)
+        return y
+    end
 
+    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, NextLine(32))
+    title:SetText("Reset Active Profile")
+
+    local desc = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    desc:SetPoint("TOPLEFT", 16, NextLine())
+    desc:SetText("Reset all settings in the active profile and reapply role-based defaults.")
+
+    local btn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    btn:SetSize(200, 24)
+    btn:SetPoint("TOPLEFT", 16, NextLine(40))
+    btn:SetText("Reset Profile")
+    btn:SetScript("OnClick", ResetActiveProfile)
+
+    local category = Settings.RegisterCanvasLayoutCategory(panel, TS.ConfigCategories.RESET)
     Settings.RegisterAddOnCategory(category)
+
+    self.panel = panel
 end
 
 return Reset

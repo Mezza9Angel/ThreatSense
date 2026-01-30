@@ -10,116 +10,163 @@ local PM = TS.ProfileManager
 ------------------------------------------------------------
 -- Helpers
 ------------------------------------------------------------
-local function Header(layout, text)
-    local h = layout:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    h:SetText(text)
-    h:SetPoint("TOPLEFT", 0, -12)
-    return h
-end
-
 local function FireProfileChanged()
-    TS.EventBus:Send("PROFILE_CHANGED")
+    if TS.EventBus and TS.EventBus.Send then
+        TS.EventBus:Send("PROFILE_CHANGED")
+    end
 
-    if TS.DisplayPreview and TS.DisplayPreview:IsActive() then
+    if TS.DisplayPreview and TS.DisplayPreview.IsActive and TS.DisplayPreview:IsActive() then
         TS.DisplayPreview:Stop()
     end
-    if TS.WarningPreview and TS.WarningPreview:IsActive() then
+    if TS.WarningPreview and TS.WarningPreview.IsActive and TS.WarningPreview:IsActive() then
         TS.WarningPreview:Stop()
     end
 end
 
-local function BuildProfileOptions()
-    local opts = {}
+local function BuildProfileList()
+    local list = {}
     for name in pairs(TS.db.profiles) do
-        table.insert(opts, { text = name, value = name })
+        table.insert(list, name)
     end
-    return opts
+    table.sort(list)
+    return list
 end
 
 ------------------------------------------------------------
 -- Initialize
 ------------------------------------------------------------
 function Roles:Initialize()
-    local categoryName = TS.Categories.ROLES
-    local category, layout = Settings.RegisterVerticalLayoutCategory(categoryName)
-    self.category = category
+    if not TS.db or not TS.db.profile then
+        return
+    end
 
-    local roleDB = TS.db.profile.roles
+    local roleDB = TS.db.profile.roles or {}
+    TS.db.profile.roles = roleDB
 
-    ------------------------------------------------------------
+    --------------------------------------------------------
+    -- Create panel frame
+    --------------------------------------------------------
+    local panel = CreateFrame("Frame", "ThreatSenseConfigRoles", UIParent)
+    panel.name   = TS.ConfigCategories.ROLES
+    panel.parent = TS.ConfigCategories.ROOT
+
+    local y = -16
+    local function NextLine(offset)
+        y = y - (offset or 26)
+        return y
+    end
+
+    local function Header(text)
+        local fs = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        fs:SetPoint("TOPLEFT", 16, NextLine(32))
+        fs:SetText(text)
+        return fs
+    end
+
+    local function Label(text)
+        local fs = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetPoint("TOPLEFT", 16, NextLine())
+        fs:SetText(text)
+        return fs
+    end
+
+    local function Checkbox(label, key, description)
+        local check = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
+        check:SetPoint("TOPLEFT", 16, NextLine())
+        _G[check:GetName() .. "Text"]:SetText(label)
+        check.tooltipText = description
+
+        check:SetChecked(roleDB[key] ~= false)
+        check:SetScript("OnClick", function(self)
+            roleDB[key] = self:GetChecked() and true or false
+            FireProfileChanged()
+        end)
+
+        return check
+    end
+
+    local function Dropdown(label, getValue, setValue, values)
+        Label(label)
+
+        local dropdown = CreateFrame("Frame", nil, panel, "UIDropDownMenuTemplate")
+        dropdown:SetPoint("TOPLEFT", 10, NextLine(-10))
+
+        local function Refresh()
+            UIDropDownMenu_SetSelectedValue(dropdown, getValue())
+            UIDropDownMenu_SetText(dropdown, getValue())
+        end
+
+        UIDropDownMenu_Initialize(dropdown, function(self, level)
+            for _, name in ipairs(values()) do
+                local info = UIDropDownMenu_CreateInfo()
+                info.text = name
+                info.value = name
+                info.func = function()
+                    setValue(name)
+                    Refresh()
+                end
+                UIDropDownMenu_AddButton(info, level)
+            end
+        end)
+
+        UIDropDownMenu_SetWidth(dropdown, 180)
+        Refresh()
+
+        return dropdown
+    end
+
+    --------------------------------------------------------
     -- AUTO-SWITCH
-    ------------------------------------------------------------
-    Header(layout, "Automatic Role Switching")
+    --------------------------------------------------------
+    Header("Automatic Role Switching")
 
-    local autoSetting = Settings.RegisterAddOnSetting(
-        category,
-        "AutoSwitchProfiles",
-        nil,
-        Settings.VarType.Boolean,
-        roleDB.autoSwitch
-    )
-
-    Settings.CreateCheckbox(
-        layout,
-        autoSetting,
+    Checkbox(
         "Enable Auto-Switch Profiles",
+        "autoSwitch",
         "Automatically switch profiles when your role changes."
     )
 
-    autoSetting:SetValueChangedCallback(function(value)
-        roleDB.autoSwitch = value
-        FireProfileChanged()
-    end)
-
-    ------------------------------------------------------------
+    --------------------------------------------------------
     -- ROLE → PROFILE MAPPING
-    ------------------------------------------------------------
-    Header(layout, "Role-Based Profile Mapping")
+    --------------------------------------------------------
+    Header("Role-Based Profile Mapping")
 
     local roles = { "TANK", "HEALER", "DPS" }
 
     for _, role in ipairs(roles) do
-        local setting = Settings.RegisterAddOnSetting(
-            category,
-            "ProfileFor" .. role,
-            nil,
-            Settings.VarType.String,
-            roleDB[role]
-        )
-
-        Settings.CreateDropdown(
-            layout,
-            setting,
-            BuildProfileOptions(),
+        Dropdown(
             role .. " Profile",
-            "Profile to use when your role is " .. role .. "."
+            function() return roleDB[role] end,
+            function(value)
+                roleDB[role] = value
+                FireProfileChanged()
+            end,
+            BuildProfileList
         )
-
-        setting:SetValueChangedCallback(function(value)
-            roleDB[role] = value
-            FireProfileChanged()
-        end)
     end
 
-    ------------------------------------------------------------
+    --------------------------------------------------------
     -- ROLE DETECTION PREVIEW
-    ------------------------------------------------------------
-    Header(layout, "Role Detection")
+    --------------------------------------------------------
+    Header("Role Detection")
 
-    Settings.CreateControlButton(
-        layout,
-        "Detect Current Role",
-        "Show what role ThreatSense currently detects.",
-        function()
-            local role = TS.RoleManager:GetCurrentRole() or "UNKNOWN"
-            print("|cff00ff00ThreatSense|r detected role: " .. role)
-        end
-    )
+    local detectBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    detectBtn:SetSize(200, 24)
+    detectBtn:SetPoint("TOPLEFT", 16, NextLine())
+    detectBtn:SetText("Detect Current Role")
+    detectBtn.tooltipText = "Show what role ThreatSense currently detects."
+    detectBtn:SetScript("OnClick", function()
+        local role = TS.RoleManager:GetCurrentRole() or "UNKNOWN"
+        print("|cff00ff00ThreatSense|r detected role: " .. role)
+    end)
 
-    ------------------------------------------------------------
-    -- REGISTER
-    ------------------------------------------------------------
+    --------------------------------------------------------
+    -- Register with Settings API
+    --------------------------------------------------------
+    local category = Settings.RegisterCanvasLayoutCategory(panel, TS.ConfigCategories.ROLES)
     Settings.RegisterAddOnCategory(category)
+
+    self.panel = panel
 end
 
 return Roles

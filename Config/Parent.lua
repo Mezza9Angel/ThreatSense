@@ -1,5 +1,5 @@
 -- ThreatSense: Parent.lua
--- Root settings panel for the addon (modernized)
+-- Root settings panel using the modern Blizzard Settings API
 
 local ADDON_NAME, TS = ...
 local Parent = {}
@@ -29,102 +29,97 @@ TS.ConfigCategories = {
 ------------------------------------------------------------
 -- Helper: Create a navigation button
 ------------------------------------------------------------
-local function CreateNavButton(layout, text, description, callback)
-    Settings.CreateControlButton(layout, text, description, callback)
+local function CreateNavButton(panel, label, tooltip, callback)
+    local btn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    btn:SetSize(200, 24)
+    btn:SetText(label)
+    btn.tooltipText = tooltip
+    btn:SetScript("OnClick", callback)
+    return btn
 end
 
 ------------------------------------------------------------
 -- Initialize the Parent Settings Panel
 ------------------------------------------------------------
 function Parent:Initialize()
-    local category, layout = Settings.RegisterVerticalLayoutCategory(TS.ConfigCategories.ROOT)
-    self.category = category
+    --------------------------------------------------------
+    -- Create the actual frame for the settings panel
+    --------------------------------------------------------
+    local panel = CreateFrame("Frame", "ThreatSenseConfigRoot", UIParent)
+    panel.name = TS.ConfigCategories.ROOT
 
-    ------------------------------------------------------------
-    -- Header: Addon Info
-    ------------------------------------------------------------
-    local header = layout:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    header:SetText("ThreatSense")
-    header:SetPoint("TOPLEFT", 0, -4)
+    --------------------------------------------------------
+    -- Title
+    --------------------------------------------------------
+    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("ThreatSense")
 
-    local info = layout:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    --------------------------------------------------------
+    -- Info text
+    --------------------------------------------------------
+    local info = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    info:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
     info:SetText("Version: " .. VERSION .. "\nAuthor: " .. AUTHOR)
-    info:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -8)
 
-    ------------------------------------------------------------
+    --------------------------------------------------------
     -- Navigation Buttons
-    ------------------------------------------------------------
-    CreateNavButton(layout,
-        "Display Settings",
+    --------------------------------------------------------
+    local y = -80
+    local function AddButton(label, tooltip, callback)
+        local btn = CreateNavButton(panel, label, tooltip, callback)
+        btn:SetPoint("TOPLEFT", 16, y)
+        y = y - 30
+    end
+
+    AddButton("Display Settings",
         "Configure threat bars, list, textures, fonts, and layout.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.DISPLAY) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.DISPLAY) end)
 
-    CreateNavButton(layout,
-        "Advanced Display Settings",
+    AddButton("Advanced Display Settings",
         "Configure textures, fonts, colors, layout, and behavior.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.DISPLAY_ADV) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.DISPLAY_ADV) end)
 
-    CreateNavButton(layout,
-        "Warning Settings",
+    AddButton("Warning Settings",
         "Configure warning types, thresholds, visuals, and sounds.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.WARNINGS) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.WARNINGS) end)
 
-    CreateNavButton(layout,
-        "Advanced Warning Settings",
+    AddButton("Advanced Warning Settings",
         "Configure advanced warning visuals, thresholds, and audio.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.WARNINGS_ADV) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.WARNINGS_ADV) end)
 
-    CreateNavButton(layout,
-        "Role Settings",
+    AddButton("Role Settings",
         "Configure role detection and optional auto-switch profiles.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.ROLES) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.ROLES) end)
 
-    CreateNavButton(layout,
-        "Profile Settings",
+    AddButton("Profile Settings",
         "Manage profiles: create, copy, delete, and switch.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.PROFILES) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.PROFILES) end)
 
-    CreateNavButton(layout,
-        "Media Settings",
+    AddButton("Media Settings",
         "Configure fonts, textures, and shared media.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.MEDIA) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.MEDIA) end)
 
-    CreateNavButton(layout,
-        "Color Settings",
+    AddButton("Color Settings",
         "Configure threat colors, role colors, and warning colors.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.COLORS) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.COLORS) end)
 
-    CreateNavButton(layout,
-        "Font Settings",
+    AddButton("Font Settings",
         "Configure fonts for all UI elements.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.FONTS) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.FONTS) end)
 
-    CreateNavButton(layout,
-        "Texture Settings",
+    AddButton("Texture Settings",
         "Configure textures for bars and backgrounds.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.TEXTURES) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.TEXTURES) end)
 
-    CreateNavButton(layout,
-        "Developer Tools",
+    AddButton("Developer Tools",
         "Debug tools, raw data views, and event logs.",
-        function() Settings.OpenToCategory(TS.ConfigCategories.DEVELOPER) end
-    )
+        function() Settings.OpenToCategory(TS.ConfigCategories.DEVELOPER) end)
 
-    ------------------------------------------------------------
+    --------------------------------------------------------
     -- Preview Buttons
-    ------------------------------------------------------------
-    CreateNavButton(layout,
-        "Preview Display",
+    --------------------------------------------------------
+    AddButton("Preview Display",
         "Show a live preview of the threat display.",
         function()
             if TS.DisplayPreview:IsActive() then
@@ -132,11 +127,9 @@ function Parent:Initialize()
             else
                 TS.DisplayPreview:Start()
             end
-        end
-    )
+        end)
 
-    CreateNavButton(layout,
-        "Preview Warnings",
+    AddButton("Preview Warnings",
         "Show a live preview of warning alerts.",
         function()
             if TS.WarningPreview:IsActive() then
@@ -144,24 +137,24 @@ function Parent:Initialize()
             else
                 TS.WarningPreview:StartRandom()
             end
-        end
-    )
+        end)
 
-    ------------------------------------------------------------
-    -- Test Mode Button
-    ------------------------------------------------------------
-    CreateNavButton(layout,
-        "Start Test Mode",
+    --------------------------------------------------------
+    -- Test Mode
+    --------------------------------------------------------
+    AddButton("Start Test Mode",
         "Simulate combat, threat, and warnings for full UI testing.",
         function()
             TS.EventBus:Send("TEST_MODE_STARTED")
-        end
-    )
+        end)
 
-    ------------------------------------------------------------
-    -- Register Category
-    ------------------------------------------------------------
+    --------------------------------------------------------
+    -- Register with the new Settings API
+    --------------------------------------------------------
+    local category = Settings.RegisterCanvasLayoutCategory(panel, TS.ConfigCategories.ROOT)
     Settings.RegisterAddOnCategory(category)
+
+    self.panel = panel
 end
 
 return Parent
