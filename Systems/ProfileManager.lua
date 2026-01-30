@@ -59,7 +59,28 @@ function PM:CreateProfile(name)
     EnsureDB()
     if ThreatSenseDB.profiles[name] then return false end
 
-    ThreatSenseDB.profiles[name] = {}
+    -- Role‑aware defaults
+    local defaults = {
+        TANK = {
+            displayMode = "BAR_AND_LIST",
+            enableWarnings = true,
+            warningStyle = "ICON",
+        },
+        HEALER = {
+            displayMode = "LIST_ONLY",
+            enableWarnings = true,
+            warningStyle = "TEXT",
+        },
+        DAMAGER = {
+            displayMode = "BAR_ONLY",
+            enableWarnings = true,
+            warningStyle = "ICON",
+        }
+    }
+
+    local role = TS.RoleManager:GetRole()
+    ThreatSenseDB.profiles[name] = CopyTable(defaults[role])
+
     return true
 end
 
@@ -103,6 +124,21 @@ function PM:Get(key, default)
     if value == nil then return default end
     return value
 end
+
+------------------------------------------------------------
+-- Auto-switch profiles when role changes (if enabled)
+------------------------------------------------------------
+TS.EventBus:Register("ROLE_CHANGED", function(newRole)
+    local auto = PM:Get("autoSwitchProfiles", false)
+    if not auto then return end
+
+    local roleProfiles = PM:Get("roleProfiles", {})
+    local targetProfile = roleProfiles[newRole]
+
+    if targetProfile and ThreatSenseDB.profiles[targetProfile] then
+        PM:SetActiveProfile(targetProfile)
+    end
+end)
 
 ------------------------------------------------------------
 -- Initialize
