@@ -41,21 +41,46 @@ function Core:OnAddonLoaded()
     ThreatSenseDB = ThreatSenseDB or {}
     TS.db = ThreatSenseDB
 
-    -- Run DB migrations if needed
+    -- Optional DB migrations (only runs if Migration.lua is loaded)
     if TS.Migration and TS.Migration.Run then
         TS.Migration:Run()
     end
 
-    -- Initialize Core systems
+    -- Initialize utility helpers
     if TS.Utils and TS.Utils.Initialize then
         TS.Utils:Initialize()
     end
 
+    -- Initialize EventBus early (required by most systems)
     if TS.EventBus and TS.EventBus.Initialize then
         TS.EventBus:Initialize()
     end
 
-    -- Initialize Engines (logic only, no UI yet)
+    -- Initialize SharedMedia wrapper
+    -- (Fix: this was missing; engines depend on it)
+    if TS.Media and TS.Media.Initialize then
+        TS.Media:Initialize()
+    end
+
+    -- Initialize profile system
+    -- (Fix: this was missing; engines depend on profile defaults)
+    if TS.ProfileManager and TS.ProfileManager.Initialize then
+        TS.ProfileManager:Initialize()
+    end
+
+    -- Initialize role detection
+    -- (Fix: this was missing; threat logic depends on role)
+    if TS.RoleManager and TS.RoleManager.Initialize then
+        TS.RoleManager:Initialize()
+    end
+
+    -- Initialize smoothing engine
+    -- (Fix: missing; ThreatBar uses smoothing)
+    if TS.Smoothing and TS.Smoothing.Initialize then
+        TS.Smoothing:Initialize()
+    end
+
+    -- Initialize core logic engines (now safe because dependencies above are ready)
     if TS.ThreatEngine and TS.ThreatEngine.Initialize then
         TS.ThreatEngine:Initialize()
     end
@@ -70,7 +95,9 @@ end
 -- Initialize UI, Config panels, and final systems
 ------------------------------------------------------------
 function Core:OnPlayerLogin()
-    -- Initialize UI modules
+    --------------------------------------------------------
+    -- UI: Display
+    --------------------------------------------------------
     if TS.ThreatBar and TS.ThreatBar.Initialize then
         TS.ThreatBar:Initialize()
     end
@@ -79,15 +106,24 @@ function Core:OnPlayerLogin()
         TS.ThreatList:Initialize()
     end
 
+    --------------------------------------------------------
+    -- UI: Warnings
+    --------------------------------------------------------
     if TS.WarningFrame and TS.WarningFrame.Initialize then
         TS.WarningFrame:Initialize()
     end
 
+    --------------------------------------------------------
+    -- UI: Display Mode
+    --------------------------------------------------------
     if TS.DisplayMode and TS.DisplayMode.Set then
-        TS.DisplayMode:Set(TS.DisplayMode.mode)
+        -- Ensure a safe default if mode is nil
+        TS.DisplayMode:Set(TS.DisplayMode.mode or "BAR_ONLY")
     end
 
-    -- Initialize preview systems
+    --------------------------------------------------------
+    -- UI: Preview Systems
+    --------------------------------------------------------
     if TS.DisplayPreview and TS.DisplayPreview.Initialize then
         TS.DisplayPreview:Initialize()
     end
@@ -96,17 +132,27 @@ function Core:OnPlayerLogin()
         TS.WarningPreview:Initialize()
     end
 
-    -- Initialize Config panels
-    if TS.Config and TS.Config.Initialize then
-        TS.Config:Initialize()
+    --------------------------------------------------------
+    -- Config Panels
+    --------------------------------------------------------
+    if TS.ConfigParent and TS.ConfigParent.Initialize then
+        TS.ConfigParent:Initialize()
     end
 
     if TS.ConfigDisplay and TS.ConfigDisplay.Initialize then
         TS.ConfigDisplay:Initialize()
     end
 
+    if TS.ConfigDisplayAdvanced and TS.ConfigDisplayAdvanced.Initialize then
+        TS.ConfigDisplayAdvanced:Initialize()
+    end
+
     if TS.ConfigWarnings and TS.ConfigWarnings.Initialize then
         TS.ConfigWarnings:Initialize()
+    end
+
+    if TS.ConfigWarningsAdvanced and TS.ConfigWarningsAdvanced.Initialize then
+        TS.ConfigWarningsAdvanced:Initialize()
     end
 
     if TS.ConfigProfiles and TS.ConfigProfiles.Initialize then
@@ -117,11 +163,13 @@ function Core:OnPlayerLogin()
         TS.ConfigRoles:Initialize()
     end
 
-    if TS.TestMode and TS.TestMode.Initialize then
-        TS.TestMode:Initialize()
+    if TS.ConfigReset and TS.ConfigReset.Initialize then
+        TS.ConfigReset:Initialize()
     end
 
-    -- Optional developer tools
+    --------------------------------------------------------
+    -- Optional developer tools (only if loaded)
+    --------------------------------------------------------
     if TS.DevMode and TS.DevMode.Initialize then
         TS.DevMode:Initialize()
     end
